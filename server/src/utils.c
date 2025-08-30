@@ -1,12 +1,14 @@
 #include"utils.h"
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <string.h>
 
 t_log* logger;
 
 int iniciar_servidor(void)
 {
-	// Quitar esta línea cuando hayamos terminado de implementar la funcion
-	assert(!"no implementado!");
-
+	
 	int socket_servidor;
 
 	struct addrinfo hints, *servinfo, *p;
@@ -19,10 +21,24 @@ int iniciar_servidor(void)
 	getaddrinfo(NULL, PUERTO, &hints, &servinfo);
 
 	// Creamos el socket de escucha del servidor
+	for(p = servinfo; p != NULL; p = p->ai_next){
+		socket_servidor = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+		if(socket_servidor == -1) continue;
 
-	// Asociamos el socket a un puerto
-
+		// Asociamos el socket a un puerto
+		 if (bind(socket_servidor, p->ai_addr, p->ai_addrlen) == -1){
+            close(socket_servidor);
+            continue;
+        }
+        break;
+	}
+	
 	// Escuchamos las conexiones entrantes
+	if (listen(socket_servidor, SOMAXCONN) == -1) {
+        // Manejar error de listen
+        freeaddrinfo(servinfo);
+        return -1;
+    }
 
 	freeaddrinfo(servinfo);
 	log_trace(logger, "Listo para escuchar a mi cliente");
@@ -32,11 +48,14 @@ int iniciar_servidor(void)
 
 int esperar_cliente(int socket_servidor)
 {
-	// Quitar esta línea cuando hayamos terminado de implementar la funcion
-	assert(!"no implementado!");
-
 	// Aceptamos un nuevo cliente
-	int socket_cliente;
+	int socket_cliente = accept(socket_servidor, NULL, NULL);
+	
+	if (socket_cliente == -1) {
+        log_error(logger, "Error al aceptar la conexion.");
+        return -1;
+    }
+	
 	log_info(logger, "Se conecto un cliente!");
 
 	return socket_cliente;
@@ -69,7 +88,7 @@ void recibir_mensaje(int socket_cliente)
 {
 	int size;
 	char* buffer = recibir_buffer(&size, socket_cliente);
-	log_info(logger, "Me llego el mensaje %s", buffer);
+	log_info(logger, "Me llego el mensaje: %s", buffer);
 	free(buffer);
 }
 

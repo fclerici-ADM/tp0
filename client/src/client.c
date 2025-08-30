@@ -1,23 +1,25 @@
+#include <stdio.h>
 #include "client.h"
+#include <commons/log.h>
+#include <commons/config.h>
+#include <stdlib.h>
+#include <string.h>
+#include "utils.h"
+#include <readline/readline.h> // Necesitas la biblioteca readline para leer la entrada
 
-int main(void)
-{
-	/*---------------------------------------------------PARTE 2-------------------------------------------------------------*/
+t_config* config;
+t_log* logger;
 
-	int conexion;
+
+int main(void) {
+    
 	char* ip;
 	char* puerto;
-	char* valor;
 
-	t_log* logger;
-	t_config* config;
-
-	/* ---------------- LOGGING ---------------- */
+    /* ---------------- LOGGING ---------------- */
 
 	logger = iniciar_logger();
-
-	// Usando el logger creado previamente
-	// Escribi: "Hola! Soy un log"
+	log_info(logger, "Hola! Soy un log");
 
 
 	/* ---------------- ARCHIVOS DE CONFIGURACION ---------------- */
@@ -26,75 +28,75 @@ int main(void)
 
 	// Usando el config creado previamente, leemos los valores del config y los 
 	// dejamos en las variables 'ip', 'puerto' y 'valor'
+	ip = config_get_string_value(config, "IP");
+	puerto = config_get_string_value(config, "PUERTO");
+	
+    // Loggeamos el valor de config
+	log_info(logger, "Lei la IP %s y el PUERTO %s\n", ip, puerto);
 
-	// Loggeamos el valor de config
 
+	// 1. Crear la conexión con el servidor
+    int socket_cliente = crear_conexion(ip, puerto);
 
-	/* ---------------- LEER DE CONSOLA ---------------- */
+    if (socket_cliente == -1) {
+        log_info(logger,"Error: no se pudo conectar al servidor.\n");
+        return EXIT_FAILURE;
+    }
 
-	leer_consola(logger);
+    log_info(logger,"Conectado al servidor. Escribe el mensaje a enviar y presiona Enter.\n");
+    log_info(logger,"Escribe 'fin' para enviar el paquete y terminar la conexión.\n");
 
-	/*---------------------------------------------------PARTE 3-------------------------------------------------------------*/
+    // 2. Crear un paquete vacío
+    t_paquete* mi_paquete = crear_paquete();
+    
+    char* linea_leida;
 
-	// ADVERTENCIA: Antes de continuar, tenemos que asegurarnos que el servidor esté corriendo para poder conectarnos a él
+    // 3. Leer de la consola línea por línea y agregar al paquete
+    linea_leida = readline("> ");
+    while (strcmp(linea_leida, "fin") != 0) {
+        // Agrega cada línea leída al paquete. El +1 es para el caracter nulo '\0'.
+        agregar_a_paquete(mi_paquete, linea_leida, strlen(linea_leida) + 1);
 
-	// Creamos una conexión hacia el servidor
-	conexion = crear_conexion(ip, puerto);
+        // Libera la memoria de la línea leída por readline()
+        free(linea_leida);
 
-	// Enviamos al servidor el valor de CLAVE como mensaje
+        // Lee la siguiente línea
+        linea_leida = readline("> ");
+    }
 
-	// Armamos y enviamos el paquete
-	paquete(conexion);
+    // 4. Enviar el paquete completo una vez que se escribió "fin"
+    log_info(logger,"Enviando paquete... \n");
+    enviar_paquete(mi_paquete, socket_cliente);
 
-	terminar_programa(conexion, logger, config);
+    // 5. Liberar la memoria del paquete y la línea leída
+    free(linea_leida);
+    eliminar_paquete(mi_paquete);
+    
+    // 6. Cerrar la conexión
+    liberar_conexion(socket_cliente);
 
-	/*---------------------------------------------------PARTE 5-------------------------------------------------------------*/
-	// Proximamente
+    log_info(logger,"Conexión cerrada. Cliente terminado.\n");
+
+    return EXIT_SUCCESS;
 }
 
 t_log* iniciar_logger(void)
 {
-	t_log* nuevo_logger;
+	// El primer parámetro es el path del archivo de log, el segundo el nombre para mostrar en consola.
+	// El tercer parámetro es si querés que se muestre en consola, y el último el nivel mínimo de log.
+	t_log* nuevo_logger = log_create("cliente.log", "CLIENTE_LOG", true, LOG_LEVEL_INFO);
 
 	return nuevo_logger;
 }
 
 t_config* iniciar_config(void)
 {
-	t_config* nuevo_config;
-
+	// El único parámetro es el path del archivo de configuración.
+	t_config* nuevo_config = config_create("cliente.config");
+    if (nuevo_config == NULL) {
+        // ¡Importante! Manejar el error si no se encuentra el archivo.
+        log_info(logger,"¡Error! No se pudo encontrar el archivo de configuración.\n");
+        exit(1);
+    }
 	return nuevo_config;
-}
-
-void leer_consola(t_log* logger)
-{
-	char* leido;
-
-	// La primera te la dejo de yapa
-	leido = readline("> ");
-
-	// El resto, las vamos leyendo y logueando hasta recibir un string vacío
-
-
-	// ¡No te olvides de liberar las lineas antes de regresar!
-
-}
-
-void paquete(int conexion)
-{
-	// Ahora toca lo divertido!
-	char* leido;
-	t_paquete* paquete;
-
-	// Leemos y esta vez agregamos las lineas al paquete
-
-
-	// ¡No te olvides de liberar las líneas y el paquete antes de regresar!
-	
-}
-
-void terminar_programa(int conexion, t_log* logger, t_config* config)
-{
-	/* Y por ultimo, hay que liberar lo que utilizamos (conexion, log y config) 
-	  con las funciones de las commons y del TP mencionadas en el enunciado */
 }
