@@ -30,11 +30,29 @@ int crear_conexion(char *ip, char* puerto)
 
 	// Ahora vamos a crear el socket.
 	int socket_cliente = 0;
+	struct addrinfo *p;
 
-	// Ahora que tenemos el socket, vamos a conectarlo
+    // Recorremos todos los server_info que nos devolvio getaddrinfo
+    for (p = server_info; p != NULL; p = p->ai_next) {
+        socket_cliente = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (socket_cliente == -1)
+            continue; // Fallo, pasamos al siguiente
 
+        if (connect(socket_cliente, p->ai_addr, p->ai_addrlen) == -1) {
+            close(socket_cliente);
+            continue; // Fallo, pasamos al siguiente
+        }
 
+        // Si llegamos aca, la conexion fue exitosa
+        break; 
+    }
+	
 	freeaddrinfo(server_info);
+
+	// Si p es NULL, significa que no se pudo conectar con ninguna direccion
+    if (p == NULL) {
+        return -1;
+    }
 
 	return socket_cliente;
 }
@@ -66,7 +84,7 @@ void crear_buffer(t_paquete* paquete)
 	paquete->buffer->size = 0;
 	paquete->buffer->stream = NULL;
 }
-
+    
 t_paquete* crear_paquete(void)
 {
 	t_paquete* paquete = malloc(sizeof(t_paquete));
@@ -106,3 +124,4 @@ void liberar_conexion(int socket_cliente)
 {
 	close(socket_cliente);
 }
+
